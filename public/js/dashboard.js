@@ -527,67 +527,209 @@ function callNumber(number) {
     }
 }
 
-// Map initialization with offline fallback
+// Remove duplicate variable declarations (fixing lint errors ID: 7f41fa28-87c2-45ef-a601-33f30bbc9d1c, 6b650623-ede3-4d31-89f0-2a4b248ea4be)
+
+// Tourist spots data (Delhi landmarks)
+const touristSpots = [
+    {
+        name: "Red Fort",
+        coords: [28.6562, 77.2410],
+        description: "Historic Mughal fortress and UNESCO World Heritage Site",
+        type: "historical"
+    },
+    {
+        name: "India Gate",
+        coords: [28.6129, 77.2295],
+        description: "War memorial and iconic landmark of Delhi",
+        type: "monument"
+    },
+    {
+        name: "Lotus Temple",
+        coords: [28.5535, 77.2588],
+        description: "Bahá'í House of Worship known for its lotus-shaped architecture",
+        type: "religious"
+    },
+    {
+        name: "Qutub Minar",
+        coords: [28.5245, 77.1855],
+        description: "UNESCO World Heritage Site and tallest brick minaret",
+        type: "historical"
+    },
+    {
+        name: "Humayun's Tomb",
+        coords: [28.5933, 77.2507],
+        description: "Mughal Emperor's tomb and UNESCO World Heritage Site",
+        type: "historical"
+    },
+    {
+        name: "Akshardham Temple",
+        coords: [28.6127, 77.2773],
+        description: "Modern Hindu temple complex with stunning architecture",
+        type: "religious"
+    }
+];
+
+// Restricted areas data
+const restrictedAreas = [
+    {
+        name: "Military Cantonment Area",
+        coords: [28.5800, 77.1600],
+        radius: 1000,
+        description: "Military restricted zone - Entry prohibited"
+    },
+    {
+        name: "Airport Security Zone",
+        coords: [28.5665, 77.1031],
+        radius: 2000,
+        description: "Airport security perimeter - Restricted access"
+    },
+    {
+        name: "Government Secretariat",
+        coords: [28.6139, 77.2090],
+        radius: 500,
+        description: "High security government area - Limited access"
+    }
+];
+
 function initializeMap() {
     try {
-        // Initialize map
-        map = L.map('map').setView([28.6139, 77.2090], 13); // Delhi coordinates
+        // Initialize map centered on Delhi, India
+        map = L.map('map').setView([28.6139, 77.2090], 12);
 
-        // Try to load OpenStreetMap tiles with fallback
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
-        });
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© CARTO',
-            maxZoom: 19
-        });
+        // Create layer groups
+        touristLayer = L.layerGroup().addTo(map);
+        restrictedLayer = L.layerGroup().addTo(map);
 
-        // Add primary layer
-        osmLayer.addTo(map);
+        // Add tourist spots
+        addTouristSpots();
+        
+        // Add restricted areas
+        addRestrictedAreas();
 
-        // Handle tile loading errors and switch to fallback
-        osmLayer.on('tileerror', function() {
-            console.log('OSM tiles failed, switching to CARTO');
-            map.removeLayer(osmLayer);
-            cartoLayer.addTo(map);
-        });
+        // Add layer control
+        addLayerControl();
 
-        cartoLayer.on('tileerror', function() {
-            console.log('CARTO tiles failed, switching to offline mode');
-            map.removeLayer(cartoLayer);
-            createOfflineMap();
-        });
-
-        // Add user location
+        // Get user's current location
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                map.setView([lat, lng], 15);
-                
-                userMarker = L.marker([lat, lng], {
-                    icon: L.divIcon({
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    // Update map view to user's location
+                    map.setView([lat, lng], 15);
+                    
+                    // Add user marker with custom icon
+                    const userIcon = L.divIcon({
                         className: 'user-location-marker',
-                        html: '<div style="background: #4CAF50; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>',
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10]
-                    })
-                }).addTo(map);
-                
-                userMarker.bindPopup('Your Location').openPopup();
-            });
+                        html: '<i class="fas fa-user-circle" style="color: #007bff; font-size: 24px;"></i>',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+                    
+                    userMarker = L.marker([lat, lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup('Your Current Location')
+                        .openPopup();
+                },
+                (error) => {
+                    console.log('Geolocation error:', error);
+                    showAlert('Unable to get your location. Using default location.', 'warning');
+                }
+            );
+        }
+    } catch (error) {
+        console.error('Map initialization error:', error);
+        document.getElementById('map').innerHTML = '<p class="text-center">Map unavailable</p>';
+    }
+}
+
+function addTouristSpots() {
+    touristSpots.forEach(spot => {
+        // Create custom icon based on type
+        let iconClass = 'fas fa-map-marker-alt';
+        let iconColor = '#28a745';
+        
+        switch(spot.type) {
+            case 'historical':
+                iconClass = 'fas fa-landmark';
+                iconColor = '#ffc107';
+                break;
+            case 'religious':
+                iconClass = 'fas fa-place-of-worship';
+                iconColor = '#17a2b8';
+                break;
+            case 'monument':
+                iconClass = 'fas fa-monument';
+                iconColor = '#6f42c1';
+                break;
         }
 
-        // Add sample safe zones and restricted areas
-        addSafetyMarkers();
+        const customIcon = L.divIcon({
+            className: 'tourist-spot-marker',
+            html: `<i class="${iconClass}" style="color: ${iconColor}; font-size: 20px;"></i>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
 
-    } catch (error) {
-        console.error('Map initialization failed:', error);
-        createOfflineMap();
-    }
+        const marker = L.marker(spot.coords, { icon: customIcon })
+            .bindPopup(`
+                <div class="map-popup">
+                    <h4>${spot.name}</h4>
+                    <p>${spot.description}</p>
+                    <small><strong>Type:</strong> ${spot.type}</small>
+                </div>
+            `)
+            .bindTooltip(spot.name, { 
+                permanent: false, 
+                direction: 'top',
+                offset: [0, -10]
+            });
+
+        touristLayer.addLayer(marker);
+    });
+}
+
+function addRestrictedAreas() {
+    restrictedAreas.forEach(area => {
+        // Create circle for restricted area
+        const circle = L.circle(area.coords, {
+            color: '#dc3545',
+            fillColor: '#dc3545',
+            fillOpacity: 0.2,
+            radius: area.radius,
+            weight: 2
+        }).bindPopup(`
+            <div class="map-popup restricted-popup">
+                <h4 style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> ${area.name}</h4>
+                <p>${area.description}</p>
+                <small><strong>Radius:</strong> ${area.radius}m</small>
+            </div>
+        `).bindTooltip(`⚠️ ${area.name}`, { 
+            permanent: false, 
+            direction: 'center',
+            className: 'restricted-tooltip'
+        });
+
+        restrictedLayer.addLayer(circle);
+    });
+}
+
+function addLayerControl() {
+    const overlayMaps = {
+        "🏛️ Tourist Spots": touristLayer,
+        "⚠️ Restricted Areas": restrictedLayer
+    };
+
+    L.control.layers(null, overlayMaps, {
+        position: 'topright',
+        collapsed: false
+    }).addTo(map);
 }
 
 function createOfflineMap() {
