@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Tourist Safety System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <div class="user-info">
+                <h1>Safety Dashboard</h1>
+                <div id="user-details"></div>
+            </div>
+            <div class="verification-status" id="verification-status"></div>
+            <button class="btn btn-secondary" id="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </button>
+        </header>
+
+        <main class="main-content">
+            <div id="alert-container"></div>
+
+            <!-- Phone Verification Section -->
+            <div id="phone-verification-section" class="hidden">
+                <div class="alert alert-warning">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Phone Verification Required</h4>
+                    <p>Please verify your phone number to access SOS features.</p>
+                    <button class="btn btn-primary" id="send-otp-btn">
+                        <i class="fas fa-sms"></i>
+                        Send OTP
+                    </button>
+                </div>
+                
+                <div id="otp-input-section" class="hidden">
+                    <div class="form-group">
+                        <label for="otp">Enter OTP</label>
+                        <input type="text" id="otp" class="form-control" placeholder="Enter 6-digit OTP" maxlength="6">
+                    </div>
+                    <button class="btn btn-primary" id="verify-otp-btn">
+                        <i class="fas fa-check"></i>
+                        Verify OTP
+                    </button>
+                </div>
+            </div>
+
+            <!-- Document Upload Section -->
+            <div id="document-upload-section" class="hidden">
+                <div class="alert alert-warning">
+                    <h4><i class="fas fa-id-card"></i> Document Verification Required</h4>
+                    <p>Please upload your government-issued document for verification.</p>
+                </div>
+                
+                <form id="documentForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="documentType">Document Type</label>
+                        <select id="documentType" class="form-select" required>
+                            <option value="">Select document type</option>
+                            <option value="aadhar">Aadhar Card</option>
+                            <option value="passport">Passport</option>
+                            <option value="driving_license">Driving License</option>
+                            <option value="voter_id">Voter ID</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="documentNumber">Document Number</label>
+                        <input type="text" id="documentNumber" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="documentFile">Upload Document Image</label>
+                        <input type="file" id="documentFile" class="form-control" accept="image/*,application/pdf" required>
+                        <small class="text-muted">Supported formats: JPG, PNG, PDF (Max 5MB)</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i>
+                        Upload Document
+                    </button>
+                </form>
+            </div>
+
+            <!-- Main Dashboard Content -->
+            <div id="main-dashboard" class="hidden">
+                <!-- SOS Section -->
+                <div class="sos-container">
+                    <h3>Emergency SOS</h3>
+                    <p>Press and hold for 3 seconds to send emergency alert</p>
+                    <button id="sosButton" class="sos-button">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>SOS</span>
+                        <small>EMERGENCY</small>
+                    </button>
+                    <div id="sos-progress" class="hidden">
+                        <div class="spinner"></div>
+                        <p>Sending emergency alert...</p>
+                    </div>
+                </div>
+
+                <!-- Emergency Numbers -->
+                <div class="emergency-numbers">
+                    <h3>Emergency Numbers</h3>
+                    <div class="features-grid">
+                        <div class="feature-card" data-number="100">
+                            <i class="fas fa-shield-alt"></i>
+                            <h4>Police</h4>
+                            <p>100</p>
+                        </div>
+                        <div class="feature-card" data-number="108">
+                            <i class="fas fa-ambulance"></i>
+                            <h4>Ambulance</h4>
+                            <p>108</p>
+                        </div>
+                        <div class="feature-card" data-number="101">
+                            <i class="fas fa-fire"></i>
+                            <h4>Fire Brigade</h4>
+                            <p>101</p>
+                        </div>
+                        <div class="feature-card" data-number="1363">
+                            <i class="fas fa-info-circle"></i>
+                            <h4>Tourist Helpline</h4>
+                            <p>1363</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Section -->
+                <div class="map-section">
+                    <h3>Safety Map</h3>
+                    <div class="map-container">
+                        <div id="map"></div>
+                    </div>
+                </div>
+
+                <!-- Emergency Contacts -->
+                <div class="contacts-section">
+                    <div class="flex justify-between align-center mb-20">
+                        <h3>Emergency Contacts</h3>
+                        <button class="btn btn-primary" id="add-contact-btn">
+                            <i class="fas fa-plus"></i>
+                            Add Contact
+                        </button>
+                    </div>
+                    <div id="contacts-list"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Contact Modal -->
+    <div id="contactModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Add Emergency Contact</h4>
+                <button class="close-btn" id="close-contact-modal">&times;</button>
+            </div>
+            <form id="contactForm">
+                <div class="form-group">
+                    <label for="contactName">Name</label>
+                    <input type="text" id="contactName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="contactPhone">Phone Number</label>
+                    <input type="tel" id="contactPhone" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="contactRelationship">Relationship</label>
+                    <input type="text" id="contactRelationship" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="contactPriority">Priority</label>
+                    <select id="contactPriority" class="form-select">
+                        <option value="1">High (1)</option>
+                        <option value="2">Medium (2)</option>
+                        <option value="3">Low (3)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Save Contact
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

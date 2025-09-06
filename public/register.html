@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Tourist Safety System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="hero-section">
+            <div class="hero-content">
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <h1>Tourist Safety System</h1>
+                </div>
+                <p class="hero-subtitle">Create your account for secure travel</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="form-container">
+                <h2 class="text-center mb-20">Register</h2>
+                
+                <div id="alert-container"></div>
+                
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" class="form-control" autocomplete="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" class="form-control" autocomplete="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" class="form-control" 
+                               placeholder="Enter 10-digit mobile number" autocomplete="tel" required>
+                        <small class="text-muted">For Indian numbers, enter 10 digits (e.g., 8976435143)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userType">Tourist Type</label>
+                        <select id="userType" name="userType" class="form-select" required>
+                            <option value="">Select tourist type</option>
+                            <option value="indian">Indian Tourist</option>
+                            <option value="foreign">Foreign Tourist</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" class="form-control" 
+                               minlength="6" autocomplete="new-password" required>
+                        <small class="text-muted">Minimum 6 characters</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" 
+                               class="form-control" autocomplete="new-password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;" id="registerBtn">
+                        <i class="fas fa-user-plus"></i>
+                        Register
+                    </button>
+                </form>
+                
+                <div class="text-center mt-20">
+                    <p>Already have an account? <a href="/login">Login here</a></p>
+                    <p><a href="/">Back to Home</a></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

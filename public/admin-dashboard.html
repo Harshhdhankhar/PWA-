@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Tourist Safety System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: transform 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-info {
+            font-size: 0.9rem;
+            color: #bdc3c7;
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 0.75rem 1.5rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: background 0.3s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: #34495e;
+        }
+
+        .nav-item i {
+            margin-right: 0.75rem;
+            width: 20px;
+        }
+
+        .logout-btn {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            right: 1rem;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 2rem;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .breadcrumb {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card.sos .icon { color: #e74c3c; }
+        .stat-card.documents .icon { color: #f39c12; }
+        .stat-card.users .icon { color: #3498db; }
+        .stat-card.verified .icon { color: #27ae60; }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        /* Content Sections */
+        .content-section {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-select, .filter-input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-badge.active { background: #fee; color: #e74c3c; }
+        .status-badge.resolved { background: #efe; color: #27ae60; }
+        .status-badge.pending { background: #fef; color: #f39c12; }
+        .status-badge.approved { background: #efe; color: #27ae60; }
+        .status-badge.rejected { background: #fee; color: #e74c3c; }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-right: 0.5rem;
+            transition: background 0.3s;
+        }
+
+        .action-btn.primary { background: #3498db; color: white; }
+        .action-btn.success { background: #27ae60; color: white; }
+        .action-btn.danger { background: #e74c3c; color: white; }
+        .action-btn.warning { background: #f39c12; color: white; }
+
+        .action-btn:hover {
+            opacity: 0.8;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Alert */
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+
+        .modal-close:hover {
+            color: #2c3e50;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-shield-alt"></i> Admin Panel</h2>
+            <div class="admin-info" id="adminInfo">Loading...</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-section="dashboard">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="#" class="nav-item" data-section="sos">
+                <i class="fas fa-exclamation-triangle"></i> SOS Alerts
+            </a>
+            <a href="#" class="nav-item" data-section="documents">
+                <i class="fas fa-file-alt"></i> Documents
+            </a>
+            <a href="#" class="nav-item" data-section="users">
+                <i class="fas fa-users"></i> Users
+            </a>
+            <a href="#" class="nav-item" data-section="settings">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </nav>
+
+        <button class="logout-btn" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <h1 id="pageTitle">Dashboard</h1>
+            <div class="breadcrumb" id="breadcrumb">Home / Dashboard</div>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card sos">
+                    <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="number" id="activeSOS">-</div>
+                    <div class="label">Active SOS Alerts</div>
+                </div>
+                <div class="stat-card documents">
+                    <div class="icon"><i class="fas fa-file-alt"></i></div>
+                    <div class="number" id="pendingDocs">-</div>
+                    <div class="label">Pending Documents</div>
+                </div>
+                <div class="stat-card users">
+                    <div class="icon"><i class="fas fa-users"></i></div>
+                    <div class="number" id="totalUsers">-</div>
+                    <div class="label">Total Users</div>
+                </div>
+                <div class="stat-card verified">
+                    <div class="icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="number" id="verifiedUsers">-</div>
+                    <div class="label">Verified Users</div>
+                </div>
+            </div>
+
+            <div class="content-section active">
+                <div class="section-header">
+                    <h2 class="section-title">Recent Activity</h2>
+                </div>
+                <div id="recentActivity" class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading recent activity...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SOS Alerts Section -->
+        <div id="sos" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">SOS Alerts Management</h2>
+                <div class="filters">
+                    <select class="filter-select" id="sosStatusFilter">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                    <input type="date" class="filter-input" id="sosDateFilter">
+                </div>
+            </div>
+            <div id="sosContent" class="loading">
+                <div class="spinner"></div>
+                <div>Loading SOS alerts...</div>
+            </div>
+        </div>
+
+        <!-- Documents Section -->
+        <div id="documents" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">Document Verification</h2>
+                <div class="filters">
+                    <select class="filter-select" id="docStatusFilter">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    <select class="filter-select" id="docTypeFilter">
+                        <option value="">All Types</option>
+                        <option value="aadhar">Aadhar</option>
+                        <option value="passport">Passport</option>
+                    </select>
+                </div>
+            </div>
+            <div id="documentsContent" class="loading">
+                <div class="spinner"></div>
+                <div>Loading documents...</div>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div id="users" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">User Management</h2>
+                <div class="filters">
+                    <input type="text" class="filter-input" id="userSearchFilter" placeholder="Search users...">
+                    <select class="filter-select" id="userTypeFilter">
+                        <option value="">All Types</option>
+                        <option value="indian">Indian</option>
+                        <option value="foreign">Foreign</option>
+                    </select>
+                </div>
+            </div>
+            <div id="usersContent" class="loading">
+                <div class="spinner"></div>
+                <div>Loading users...</div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settings" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">System Settings</h2>
+            </div>
+            <div style="padding: 2rem;">
+                <p>Settings panel coming soon...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for SOS Details -->
+    <div id="sosModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeSosModal">&times;</span>
+            <h3>SOS Alert Details</h3>
+            <div id="sosModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Document Details -->
+    <div id="docModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeDocModal">&times;</span>
+            <h3>Document Details</h3>
+            <div id="docModalContent"></div>
+        </div>
+    </div>
+
+    <script src="js/admin-dashboard.js"></script>
+</body>
+</html>
