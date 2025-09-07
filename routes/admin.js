@@ -20,7 +20,30 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find admin
+    // Check against environment variables first, then database
+    const envUsername = process.env.ADMIN_USERNAME;
+    const envPassword = process.env.ADMIN_PASSWORD;
+    
+    if (envUsername && envPassword && username === envUsername && password === envPassword) {
+      // Environment variable authentication successful
+      const token = jwt.sign(
+        { adminId: 'env-admin', username: username, role: 'admin' },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      );
+
+      return res.json({
+        success: true,
+        message: 'Admin login successful',
+        token,
+        admin: {
+          username: username,
+          role: 'admin'
+        }
+      });
+    }
+
+    // Fallback to database authentication
     const admin = await Admin.findOne({ username });
     if (!admin) {
       return res.status(401).json({
