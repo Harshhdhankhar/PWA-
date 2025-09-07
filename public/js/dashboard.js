@@ -274,7 +274,7 @@ function checkVerificationStatus(user) {
 // Phone verification functions
 async function sendOTP() {
     try {
-        const response = await apiCall('/api/phone/send-otp', {
+        const response = await apiCall('/api/phone-verification/send-otp', {
             method: 'POST'
         });
 
@@ -296,7 +296,7 @@ async function verifyOTP() {
     }
 
     try {
-        const response = await apiCall('/api/phone/verify-otp', {
+        const response = await apiCall('/api/phone-verification/verify-otp', {
             method: 'POST',
             body: JSON.stringify({ otp })
         });
