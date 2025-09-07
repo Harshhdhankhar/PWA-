@@ -19,16 +19,26 @@ const adminAuth = async (req, res, next) => {
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Verify admin still exists using adminId from token
-    const admin = await Admin.findById(decoded.adminId);
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token. Admin not found.'
-      });
+    // Handle environment variable authentication (adminId will be 'env-admin')
+    if (decoded.adminId === 'env-admin') {
+      // For environment variable auth, create a virtual admin object
+      req.admin = {
+        _id: 'env-admin',
+        username: decoded.username,
+        role: decoded.role || 'admin'
+      };
+    } else {
+      // Verify admin still exists using adminId from token for database auth
+      const admin = await Admin.findById(decoded.adminId);
+      if (!admin) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token. Admin not found.'
+        });
+      }
+      req.admin = admin;
     }
 
-    req.admin = admin;
     next();
   } catch (error) {
     console.error('Admin auth error:', error);

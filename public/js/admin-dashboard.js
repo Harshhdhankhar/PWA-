@@ -10,22 +10,36 @@ class AdminDashboard {
     }
 
     init() {
-        // Check authentication
-        if (!this.token || !this.adminData.username) {
+        // Check authentication - JWT token must exist
+        if (!this.token) {
             this.redirectToLogin();
             return;
         }
 
-        this.setupEventListeners();
-        this.displayAdminInfo();
-        this.loadDashboardData();
-        this.startAutoRefresh();
+        // Validate token by making a test API call
+        this.validateToken();
     }
 
     redirectToLogin() {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminData');
         window.location.href = '/admin-login.html';
+    }
+
+    async validateToken() {
+        try {
+            const response = await this.apiCall('/api/admin/stats');
+            if (response) {
+                // Token is valid, initialize dashboard
+                this.setupEventListeners();
+                this.displayAdminInfo();
+                this.loadDashboardData();
+                this.startAutoRefresh();
+            }
+        } catch (error) {
+            console.error('Token validation failed:', error);
+            this.redirectToLogin();
+        }
     }
 
     setupEventListeners() {
