@@ -38,8 +38,33 @@ router.post('/send-otp', authenticateToken, async (req, res) => {
 
     // Format phone number to E.164 format
     let phoneNumber = user.phone;
+    
+    // Remove all non-digit characters except +
+    phoneNumber = phoneNumber.replace(/[^\d+]/g, '');
+    
+    // Handle different phone number formats
     if (!phoneNumber.startsWith('+')) {
-      phoneNumber = '+' + phoneNumber;
+      // If it's a 10-digit Indian number, add +91
+      if (phoneNumber.length === 10 && phoneNumber.match(/^[6-9]\d{9}$/)) {
+        phoneNumber = '+91' + phoneNumber;
+      }
+      // If it's 11 digits starting with 91, add +
+      else if (phoneNumber.length === 12 && phoneNumber.startsWith('91')) {
+        phoneNumber = '+' + phoneNumber;
+      }
+      // If it's any other format, assume it needs country code
+      else if (phoneNumber.length >= 10) {
+        // Default to +91 for Indian numbers, but you can modify this logic
+        phoneNumber = '+91' + phoneNumber.slice(-10);
+      }
+      else {
+        throw new Error('Invalid phone number format. Please enter a valid phone number.');
+      }
+    }
+    
+    // Validate E.164 format (+ followed by 1-15 digits)
+    if (!/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      throw new Error('Invalid phone number format. Please enter a valid international phone number.');
     }
 
     console.log(`Sending OTP to: ${phoneNumber}`);
@@ -149,8 +174,33 @@ router.post('/verify-otp', authenticateToken, async (req, res) => {
 
     // Format phone number to E.164 format
     let phoneNumber = user.phone;
+    
+    // Remove all non-digit characters except +
+    phoneNumber = phoneNumber.replace(/[^\d+]/g, '');
+    
+    // Handle different phone number formats
     if (!phoneNumber.startsWith('+')) {
-      phoneNumber = '+' + phoneNumber;
+      // If it's a 10-digit Indian number, add +91
+      if (phoneNumber.length === 10 && phoneNumber.match(/^[6-9]\d{9}$/)) {
+        phoneNumber = '+91' + phoneNumber;
+      }
+      // If it's 11 digits starting with 91, add +
+      else if (phoneNumber.length === 12 && phoneNumber.startsWith('91')) {
+        phoneNumber = '+' + phoneNumber;
+      }
+      // If it's any other format, assume it needs country code
+      else if (phoneNumber.length >= 10) {
+        // Default to +91 for Indian numbers, but you can modify this logic
+        phoneNumber = '+91' + phoneNumber.slice(-10);
+      }
+      else {
+        throw new Error('Invalid phone number format. Please enter a valid phone number.');
+      }
+    }
+    
+    // Validate E.164 format (+ followed by 1-15 digits)
+    if (!/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      throw new Error('Invalid phone number format. Please enter a valid international phone number.');
     }
 
     console.log(`Verifying OTP for: ${phoneNumber}`);
