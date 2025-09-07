@@ -1,6 +1,5 @@
 // Script to create admin account for testing
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 // Import Admin model
@@ -9,35 +8,28 @@ const Admin = require('../models/Admin');
 async function createAdmin() {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tourist-safety');
     console.log('Connected to MongoDB');
 
-    // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ username: 'admin' });
-    if (existingAdmin) {
-      console.log('Admin account already exists');
-      process.exit(0);
-    }
+    // Delete existing admin if exists
+    await Admin.deleteMany({ username: 'admin' });
+    console.log('Cleared existing admin accounts');
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash('admin123', 12);
-
-    // Create admin
+    // Create admin (password will be hashed by pre-save middleware)
     const admin = new Admin({
       username: 'admin',
-      password: hashedPassword,
-      role: 'Administrator',
-      email: 'admin@touristsafety.com'
+      password: 'admin123',
+      role: 'admin'  // Use correct enum value
     });
 
     await admin.save();
-    console.log('Admin account created successfully!');
+    console.log('✅ Admin account created successfully!');
     console.log('Username: admin');
     console.log('Password: admin123');
     
     process.exit(0);
   } catch (error) {
-    console.error('Error creating admin:', error);
+    console.error('❌ Error creating admin:', error);
     process.exit(1);
   }
 }
