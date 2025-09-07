@@ -164,16 +164,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tourist-safety', {
+// MongoDB connection - supports both local and cloud deployment
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/tourist-safety';
+
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => {
-  logger.info('Connected to MongoDB');
+  logger.info('✅ MongoDB Connected');
+  console.log('✅ MongoDB Connected to:', mongoUri.replace(/\/\/.*@/, '//***:***@'));
 })
 .catch((err) => {
-  logger.error('MongoDB connection error:', err);
+  logger.error('❌ MongoDB Connection Error:', err);
+  console.error('❌ MongoDB Connection Error:', err);
   process.exit(1);
 });
 
