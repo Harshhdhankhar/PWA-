@@ -292,7 +292,18 @@ function checkVerificationStatus(user) {
         
         // Initialize map when main dashboard is shown
         setTimeout(() => {
-            initializeMap();
+            // Ensure Leaflet is loaded before initializing map
+            if (typeof L !== 'undefined') {
+                initializeMap();
+            } else {
+                console.error('Leaflet library not loaded');
+                // Retry after a short delay
+                setTimeout(() => {
+                    if (typeof L !== 'undefined') {
+                        initializeMap();
+                    }
+                }, 1000);
+            }
             loadEmergencyContacts();
         }, 500);
     }
@@ -339,18 +350,7 @@ async function verifyOTP() {
     }
 }
 
-// Document upload
-document.addEventListener('DOMContentLoaded', function() {
-    const documentForm = document.getElementById('documentForm');
-    if (documentForm) {
-        documentForm.addEventListener('submit', handleDocumentUpload);
-    }
-
-    const contactForm = document.getElementById('contactForm');
-    if (contactForm) {
-        contactForm.addEventListener('submit', handleAddContact);
-    }
-});
+// Document upload event listener - moved to main initialization
 
 async function handleDocumentUpload(e) {
     e.preventDefault();
@@ -447,10 +447,10 @@ function startSOS(e) {
     sosButton.classList.add('sos-active');
     sosButton.style.transform = 'scale(1.1)';
     
-    // Start 3-second countdown
+    // Start 2-second countdown for faster response
     sosTimeout = setTimeout(() => {
         sendSOSAlert();
-    }, 3000);
+    }, 2000);
 
     // Show progress indicator
     if (sosProgress) {
@@ -509,18 +509,30 @@ async function sendSOSAlert() {
             }
         }
 
+        // Ensure we have location coordinates - use default if geolocation failed
+        if (!location) {
+            location = {
+                latitude: 28.6139, // Default to Delhi coordinates
+                longitude: 77.2090
+            };
+            console.log('Using default location (Delhi) as geolocation failed');
+        }
+
         const response = await apiCall('/api/emergency/sos', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                location: location,
+                latitude: location.latitude,
+                longitude: location.longitude,
+                address: location.address || 'Location not available',
+                alertType: 'emergency',
                 timestamp: new Date().toISOString()
             })
         });
 
-        if (response.success) {
+        if (response && response.success) {
             showAlert('🚨 Emergency alert sent successfully! Help is on the way.', 'success');
             
             // Update progress indicator
@@ -529,7 +541,8 @@ async function sendSOSAlert() {
                     <div style="color: #4CAF50;">
                         <i class="fas fa-check-circle"></i>
                         <p>Emergency alert sent!</p>
-                        <small>Alert ID: ${response.alertId || 'N/A'}</small>
+                        <small>Alert ID: ${response.alert?.id || 'N/A'}</small>
+                        <small>Contacts notified: ${response.alert?.contactsNotified || 0}</small>
                     </div>
                 `;
                 
@@ -539,7 +552,7 @@ async function sendSOSAlert() {
                 }, 5000);
             }
         } else {
-            throw new Error(response.message || 'Failed to send SOS alert');
+            throw new Error(response?.message || 'Failed to send SOS alert');
         }
     } catch (error) {
         console.error('SOS Alert Error:', error);
@@ -689,6 +702,12 @@ function initializeMap() {
         return;
     }
 
+    // Check if Leaflet is available
+    if (typeof L === 'undefined') {
+        console.error('Leaflet library not available');
+        return;
+    }
+
     // Clear any existing map
     if (map) {
         map.remove();
@@ -696,6 +715,7 @@ function initializeMap() {
     }
 
     try {
+        console.log('Initializing map...');
         // Initialize map centered on Delhi
         map = L.map('map').setView([28.6139, 77.2090], 12);
 
@@ -928,15 +948,19 @@ let lastContactsLoadTime = parseInt(localStorage.getItem('lastContactsLoad') || 
 const CONTACTS_LOAD_COOLDOWN = 8000; // 8 seconds
 
 // Emergency contacts management
-async function loadEmergencyContacts() {
-    // Prevent repeated calls within cooldown period
-    const now = Date.now();
-    if (contactsLoadInProgress || (now - lastContactsLoadTime < CONTACTS_LOAD_COOLDOWN)) {
-        console.log('Contacts load skipped - cooldown active or already in progress');
-        return;
+async function loadEmergencyContacts(forceRefresh = false) {
+    // Skip cooldown if force refresh is requested
+    if (!forceRefresh) {
+        // Prevent repeated calls within cooldown period
+        const now = Date.now();
+        if (contactsLoadInProgress || (now - lastContactsLoadTime < CONTACTS_LOAD_COOLDOWN)) {
+            console.log('Contacts load skipped - cooldown active or already in progress');
+            return;
+        }
     }
     
     contactsLoadInProgress = true;
+    const now = Date.now();
     lastContactsLoadTime = now;
     localStorage.setItem('lastContactsLoad', now.toString());
     
@@ -967,28 +991,27 @@ async function loadEmergencyContacts() {
                     </div>`;
                 
                 // Add event listener for retry button
-                const retryBtn = document.getElementById('retry-contacts-rate-limit');
-                if (retryBtn) retryBtn.addEventListener('click', loadEmergencyContacts);
+                document.getElementById('retry-contacts-rate-limit')?.addEventListener('click', () => {
+                    loadEmergencyContacts(true);
+                });
             }
         } else {
-            showAlert('Failed to load emergency contacts', 'warning');
+            showAlert('Failed to load emergency contacts. Please refresh the page.', 'error');
             
-            // Show placeholder UI
             const contactsList = document.getElementById('contacts-list');
             if (contactsList) {
                 contactsList.innerHTML = `
                     <div class="text-center" style="color: #666; padding: 20px;">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <p>Unable to load emergency contacts</p>
+                        <p>Unable to load contacts</p>
                         <button class="btn btn-sm btn-secondary" id="retry-contacts-error">
                             <i class="fas fa-refresh"></i> Retry
                         </button>
-                    </div>
-                `;
+                    </div>`;
                 
-                // Add event listener for retry button
-                const retryBtn = document.getElementById('retry-contacts-error');
-                if (retryBtn) retryBtn.addEventListener('click', loadEmergencyContacts);
+                document.getElementById('retry-contacts-error')?.addEventListener('click', () => {
+                    loadEmergencyContacts(true);
+                });
             }
         }
     } finally {
@@ -998,27 +1021,35 @@ async function loadEmergencyContacts() {
 
 function displayContacts(contacts) {
     const contactsList = document.getElementById('contacts-list');
-    
-    if (contacts.length === 0) {
-        contactsList.innerHTML = '<p class="text-center">No emergency contacts added yet.</p>';
+    if (!contactsList) return;
+
+    if (!contacts || contacts.length === 0) {
+        contactsList.innerHTML = `
+            <div class="text-center" style="color: #666; padding: 20px;">
+                <i class="fas fa-address-book"></i>
+                <p>No emergency contacts added yet</p>
+                <p><small>Add contacts to receive emergency notifications</small></p>
+            </div>
+        `;
         return;
     }
 
     contactsList.innerHTML = contacts.map(contact => `
-        <div class="contact-item">
+        <div class="contact-card" data-contact-id="${contact._id}">
             <div class="contact-info">
                 <h4>${contact.name}</h4>
-                <p>${contact.phone} | ${contact.relationship} | Priority: ${contact.priority}</p>
+                <p><i class="fas fa-phone"></i> ${contact.phone}</p>
+                <p><i class="fas fa-user"></i> ${contact.relationship}</p>
+                <span class="priority-badge priority-${contact.priority}">
+                    Priority ${contact.priority}
+                </span>
             </div>
             <div class="contact-actions">
-                <button class="btn btn-sm btn-primary" data-phone="${contact.phone}">
-                    <i class="fas fa-phone"></i>
-                </button>
-                <button class="btn btn-sm btn-danger" data-contact-id="${contact._id}">
-                    <i class="fas fa-trash"></i>
-                </button>
-                <button class="btn btn-sm btn-secondary" data-contact-id="${contact._id}">
+                <button class="btn btn-sm btn-primary" onclick="editContact('${contact._id}')">
                     <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteContact('${contact._id}')">
+                    <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>
@@ -1076,9 +1107,12 @@ function editContact(contactId) {
 
     // Extract contact info from the card
     const name = contactCard.querySelector('h4').textContent;
-    const phone = contactCard.querySelector('.fa-phone').parentElement.textContent.replace('📞', '').trim();
-    const relationship = contactCard.querySelector('.fa-user').parentElement.textContent.replace('👤', '').trim();
-    const priority = contactCard.querySelector('.priority-badge').textContent.replace('Priority ', '');
+    const phoneText = contactCard.querySelector('.fa-phone').parentElement.textContent;
+    const phone = phoneText.replace(/.*\s/, '').trim(); // Get text after icon
+    const relationshipText = contactCard.querySelector('.fa-user').parentElement.textContent;
+    const relationship = relationshipText.replace(/.*\s/, '').trim(); // Get text after icon
+    const priorityText = contactCard.querySelector('.priority-badge').textContent;
+    const priority = priorityText.replace('Priority ', '');
 
     // Populate the form with existing data
     document.getElementById('contactName').value = name;
@@ -1135,131 +1169,628 @@ function closeContactModal() {
     document.getElementById('contactModal').classList.add('hidden');
     document.getElementById('contactForm').reset();
     
-    // Reset form submission to create mode
-    const form = document.getElementById('contactForm');
-    form.onsubmit = async (e) => {
-        e.preventDefault();
-        const contactData = {
-            name: document.getElementById('contactName').value,
-            phone: document.getElementById('contactPhone').value,
-            relationship: document.getElementById('contactRelationship').value,
-            priority: parseInt(document.getElementById('contactPriority').value)
-        };
-        await addContact(contactData);
-    };
+    // Form submission is already handled by the main event listener on line 157
+    // No need to reassign onsubmit here
 }
 
-// Modal utility functions
-function showModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
+
+// Mock Data for New Features
+const mockAlertHistory = [
+    {
+        id: 1,
+        date: '2025-09-07',
+        time: '14:30',
+        location: 'Connaught Place, New Delhi',
+        coordinates: [28.6315, 77.2167],
+        status: 'resolved',
+        type: 'SOS Alert'
+    },
+    {
+        id: 2,
+        date: '2025-09-06',
+        time: '09:15',
+        location: 'India Gate, New Delhi',
+        coordinates: [28.6129, 77.2295],
+        status: 'resolved',
+        type: 'Emergency Contact'
+    },
+    {
+        id: 3,
+        date: '2025-09-05',
+        time: '18:45',
+        location: 'Red Fort, New Delhi',
+        coordinates: [28.6562, 77.2410],
+        status: 'pending',
+        type: 'Voice SOS'
     }
-}
+];
 
-function hideModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
+const mockVolunteers = [
+    {
+        id: 1,
+        name: 'Rajesh Kumar',
+        rating: 4.8,
+        distance: '0.5 km',
+        coordinates: [28.6139, 77.2090],
+        skills: ['First Aid', 'Local Guide', 'Hindi/English'],
+        available: true
+    },
+    {
+        id: 2,
+        name: 'Priya Sharma',
+        rating: 4.9,
+        distance: '1.2 km',
+        coordinates: [28.6200, 77.2100],
+        skills: ['Medical', 'Women Safety', 'Emergency Response'],
+        available: true
+    },
+    {
+        id: 3,
+        name: 'Mohammed Ali',
+        rating: 4.7,
+        distance: '2.1 km',
+        coordinates: [28.6050, 77.2150],
+        skills: ['Transportation', 'Local Knowledge', 'Urdu/Hindi'],
+        available: false
     }
-}
+];
 
-function showAddContactModal() {
-    showModal('contactModal');
-}
+// Speech Recognition Variables
+let recognition = null;
+let isRecording = false;
 
-function hideAddContactModal() {
-    hideModal('contactModal');
-}
-
-function closeContactModal() {
-    hideModal('contactModal');
-    document.getElementById('contactForm').reset();
-}
-
-async function handleAddContact(e) {
-    e.preventDefault();
+// Tab Navigation
+function initializeTabNavigation() {
+    const navTabs = document.querySelectorAll('.nav-tab');
+    const tabPanes = document.querySelectorAll('.tab-pane');
     
-    const form = e.target;
-    const data = {
-        name: form.contactName.value,
-        phone: form.contactPhone.value,
-        relationship: form.contactRelationship.value,
-        priority: parseInt(form.contactPriority.value)
-    };
-
-    try {
-        const response = await apiCall('/api/emergency/contacts', {
-            method: 'POST',
-            body: JSON.stringify(data)
+    navTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            
+            // Update active tab
+            navTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Update active pane
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            const targetPane = document.getElementById(`${targetTab}-tab`);
+            if (targetPane) {
+                targetPane.classList.add('active');
+                
+                // Initialize tab-specific content
+                switch(targetTab) {
+                    case 'history':
+                        loadAlertHistory();
+                        initializeLastLocationMap();
+                        break;
+                    case 'tracking':
+                        initializeTrackingMap();
+                        break;
+                    case 'volunteers':
+                        loadVolunteers();
+                        initializeVolunteersMap();
+                        break;
+                }
+            }
         });
+    });
+}
 
-        if (response.success) {
-            showAlert('Emergency contact added successfully!', 'success');
-            closeContactModal();
-            loadEmergencyContacts();
-        }
-    } catch (error) {
-        showAlert(error.message || 'Failed to add contact', 'danger');
+// Alert History Functions
+function loadAlertHistory() {
+    const historyList = document.getElementById('alert-history-list');
+    if (!historyList) return;
+    
+    historyList.innerHTML = mockAlertHistory.map(alert => `
+        <div class="alert-item ${alert.status}">
+            <div class="alert-header">
+                <span class="alert-type">${alert.type}</span>
+                <span class="alert-status ${alert.status}">${alert.status.toUpperCase()}</span>
+            </div>
+            <div class="alert-details">
+                <p><i class="fas fa-calendar"></i> ${alert.date} at ${alert.time}</p>
+                <p><i class="fas fa-map-marker-alt"></i> ${alert.location}</p>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update stats
+    document.getElementById('total-alerts').textContent = mockAlertHistory.length;
+    document.getElementById('resolved-alerts').textContent = 
+        mockAlertHistory.filter(a => a.status === 'resolved').length;
+}
+
+function initializeLastLocationMap() {
+    const mapContainer = document.getElementById('last-location-map');
+    if (!mapContainer) return;
+    
+    // Clear existing map
+    mapContainer.innerHTML = '';
+    
+    const lastLocation = mockAlertHistory[0];
+    const miniMap = L.map(mapContainer).setView(lastLocation.coordinates, 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMap);
+    
+    L.marker(lastLocation.coordinates)
+        .addTo(miniMap)
+        .bindPopup(`Last known location: ${lastLocation.location}`)
+        .openPopup();
+}
+
+// Voice/Text Emergency Access
+function initializeAccessibilityFeatures() {
+    const voiceBtn = document.getElementById('voice-sos-btn');
+    const textBtn = document.getElementById('text-sos-btn');
+    const textInput = document.getElementById('text-sos-input');
+    const sendTextBtn = document.getElementById('send-text-sos');
+    
+    if (voiceBtn) {
+        voiceBtn.addEventListener('click', toggleVoiceRecording);
+    }
+    
+    if (textBtn) {
+        textBtn.addEventListener('click', () => {
+            textInput.classList.toggle('hidden');
+        });
+    }
+    
+    if (sendTextBtn) {
+        sendTextBtn.addEventListener('click', sendTextEmergency);
+    }
+    
+    // Initialize Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            handleVoiceEmergency(transcript);
+        };
+        
+        recognition.onerror = function(event) {
+            showAlert('Voice recognition error. Please try again.', 'error');
+            stopVoiceRecording();
+        };
+        
+        recognition.onend = function() {
+            stopVoiceRecording();
+        };
     }
 }
 
-async function deleteContact(contactId) {
-    if (!confirm('Are you sure you want to delete this contact?')) {
+function toggleVoiceRecording() {
+    if (!recognition) {
+        showAlert('Voice recognition not supported in this browser', 'error');
         return;
     }
+    
+    if (isRecording) {
+        stopVoiceRecording();
+    } else {
+        startVoiceRecording();
+    }
+}
 
-    try {
-        const response = await apiCall(`/api/emergency/contacts/${contactId}`, {
-            method: 'DELETE'
+function startVoiceRecording() {
+    isRecording = true;
+    const voiceBtn = document.getElementById('voice-sos-btn');
+    const voiceStatus = document.getElementById('voice-status');
+    
+    voiceBtn.classList.add('recording');
+    voiceBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+    
+    voiceStatus.classList.remove('hidden');
+    voiceStatus.innerHTML = '<i class="fas fa-microphone"></i> Listening... Speak your emergency message';
+    
+    recognition.start();
+}
+
+function stopVoiceRecording() {
+    isRecording = false;
+    const voiceBtn = document.getElementById('voice-sos-btn');
+    const voiceStatus = document.getElementById('voice-status');
+    
+    voiceBtn.classList.remove('recording');
+    voiceBtn.innerHTML = '<i class="fas fa-microphone"></i> Voice SOS';
+    
+    voiceStatus.classList.add('hidden');
+    
+    if (recognition) {
+        recognition.stop();
+    }
+}
+
+function handleVoiceEmergency(transcript) {
+    showAlert(`Voice Emergency Detected: "${transcript}" - Mock SOS alert sent!`, 'success');
+    // In real implementation, this would trigger the same SOS flow
+}
+
+function sendTextEmergency() {
+    const emergencyText = document.getElementById('emergency-text').value.trim();
+    if (!emergencyText) {
+        showAlert('Please enter an emergency message', 'warning');
+        return;
+    }
+    
+    showAlert(`Text Emergency: "${emergencyText}" - Mock SOS alert sent!`, 'success');
+    document.getElementById('emergency-text').value = '';
+    document.getElementById('text-sos-input').classList.add('hidden');
+}
+
+// e-FIR Functions
+function initializeEFIR() {
+    const reportBtn = document.getElementById('report-missing-btn');
+    const efirModal = document.getElementById('efirModal');
+    const previewBtn = document.getElementById('preview-efir-btn');
+    const submitBtn = document.getElementById('submit-efir-final-btn');
+    const downloadBtn = document.getElementById('download-efir-btn');
+    
+    if (reportBtn) {
+        reportBtn.addEventListener('click', () => {
+            efirModal.classList.remove('hidden');
         });
+    }
+    
+    if (previewBtn) {
+        previewBtn.addEventListener('click', generateEFIRPreview);
+    }
+    
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitEFIR);
+    }
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadEFIRPDF);
+    }
+    
+    // Close modal handlers
+    document.getElementById('close-efir-modal')?.addEventListener('click', () => {
+        efirModal.classList.add('hidden');
+    });
+    
+    document.getElementById('close-preview-modal')?.addEventListener('click', () => {
+        document.getElementById('efirPreviewModal').classList.add('hidden');
+    });
+}
 
-        if (response.success) {
-            showAlert('Contact deleted successfully', 'success');
-            loadEmergencyContacts();
+function generateEFIRPreview() {
+    const formData = {
+        name: document.getElementById('missingName').value,
+        age: document.getElementById('missingAge').value,
+        description: document.getElementById('missingDescription').value,
+        lastSeenLocation: document.getElementById('lastSeenLocation').value,
+        lastSeenDate: document.getElementById('lastSeenDate').value,
+        lastSeenTime: document.getElementById('lastSeenTime').value,
+        reporterContact: document.getElementById('reporterContact').value
+    };
+    
+    if (!formData.name || !formData.age || !formData.description) {
+        showAlert('Please fill in all required fields', 'warning');
+        return;
+    }
+    
+    const previewContent = document.getElementById('efir-preview-content');
+    const firNumber = 'FIR-' + Date.now().toString().slice(-6);
+    
+    previewContent.innerHTML = `
+        <div class="efir-header">
+            <h2>ELECTRONIC FIRST INFORMATION REPORT (e-FIR)</h2>
+            <h3>MISSING PERSON REPORT</h3>
+            <p><strong>FIR No:</strong> ${firNumber}</p>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+        </div>
+        
+        <div class="efir-body">
+            <div class="efir-field">
+                <strong>Missing Person Name:</strong> ${formData.name}
+            </div>
+            <div class="efir-field">
+                <strong>Age:</strong> ${formData.age} years
+            </div>
+            <div class="efir-field">
+                <strong>Physical Description:</strong> ${formData.description}
+            </div>
+            <div class="efir-field">
+                <strong>Last Seen Location:</strong> ${formData.lastSeenLocation}
+            </div>
+            <div class="efir-field">
+                <strong>Last Seen Date & Time:</strong> ${formData.lastSeenDate} at ${formData.lastSeenTime}
+            </div>
+            <div class="efir-field">
+                <strong>Reporter Contact:</strong> ${formData.reporterContact}
+            </div>
+            <div class="efir-field">
+                <strong>Report Filed On:</strong> ${new Date().toLocaleString()}
+            </div>
+        </div>
+        
+        <div class="efir-footer" style="margin-top: 30px; text-align: center; color: #666;">
+            <p><em>This is a demo e-FIR. In actual implementation, this would be submitted to law enforcement.</em></p>
+        </div>
+    `;
+    
+    document.getElementById('efirPreviewModal').classList.remove('hidden');
+}
+
+function downloadEFIRPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const content = document.getElementById('efir-preview-content').innerText;
+    const lines = doc.splitTextToSize(content, 180);
+    
+    doc.setFontSize(16);
+    doc.text('e-FIR - Missing Person Report', 20, 20);
+    
+    doc.setFontSize(12);
+    doc.text(lines, 20, 40);
+    
+    doc.save('eFIR-Missing-Person-Report.pdf');
+    showAlert('e-FIR PDF downloaded successfully!', 'success');
+}
+
+function submitEFIR() {
+    showAlert('e-FIR submitted successfully! (Demo Mode) - Reference ID: FIR-' + Date.now().toString().slice(-6), 'success');
+    document.getElementById('efirPreviewModal').classList.add('hidden');
+    document.getElementById('efirModal').classList.add('hidden');
+    document.getElementById('efirForm').reset();
+}
+
+// Real-Time Tracking
+let trackingMap = null;
+let trackingMarker = null;
+let trackingPath = [];
+let trackingInterval = null;
+
+function initializeTrackingMap() {
+    const mapContainer = document.getElementById('tracking-map');
+    if (!mapContainer) return;
+    
+    if (trackingMap) {
+        trackingMap.remove();
+    }
+    
+    trackingMap = L.map(mapContainer).setView([28.6139, 77.2090], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(trackingMap);
+    
+    const toggle = document.getElementById('live-tracking-toggle');
+    if (toggle) {
+        toggle.addEventListener('change', function() {
+            if (this.checked) {
+                startLiveTracking();
+            } else {
+                stopLiveTracking();
+            }
+        });
+    }
+}
+
+function startLiveTracking() {
+    showAlert('Live tracking started (Demo Mode)', 'success');
+    
+    // Simulate movement with mock coordinates
+    const mockPath = [
+        [28.6139, 77.2090],
+        [28.6150, 77.2100],
+        [28.6160, 77.2110],
+        [28.6170, 77.2120],
+        [28.6180, 77.2130]
+    ];
+    
+    let pathIndex = 0;
+    trackingPath = [];
+    
+    trackingInterval = setInterval(() => {
+        if (pathIndex < mockPath.length) {
+            const currentPos = mockPath[pathIndex];
+            trackingPath.push(currentPos);
+            
+            if (trackingMarker) {
+                trackingMarker.setLatLng(currentPos);
+            } else {
+                trackingMarker = L.marker(currentPos).addTo(trackingMap)
+                    .bindPopup('Your current location');
+            }
+            
+            // Draw path
+            if (trackingPath.length > 1) {
+                L.polyline(trackingPath, {color: 'blue', weight: 3}).addTo(trackingMap);
+            }
+            
+            trackingMap.setView(currentPos, 15);
+            
+            // Update stats
+            document.getElementById('distance-traveled').textContent = 
+                ((pathIndex + 1) * 0.2).toFixed(1) + ' km';
+            document.getElementById('tracking-duration').textContent = 
+                Math.floor((pathIndex + 1) * 2 / 60) + 'h ' + ((pathIndex + 1) * 2 % 60) + 'm';
+            
+            pathIndex++;
+        } else {
+            pathIndex = 0; // Loop the path
         }
-    } catch (error) {
-        showAlert(error.message || 'Failed to delete contact', 'danger');
+    }, 3000);
+}
+
+function stopLiveTracking() {
+    if (trackingInterval) {
+        clearInterval(trackingInterval);
+        trackingInterval = null;
+    }
+    showAlert('Live tracking stopped', 'info');
+}
+
+// Volunteers System
+function loadVolunteers() {
+    const volunteersList = document.getElementById('volunteers-list-container');
+    if (!volunteersList) return;
+    
+    volunteersList.innerHTML = mockVolunteers.map(volunteer => `
+        <div class="volunteer-item">
+            <div class="volunteer-header">
+                <span class="volunteer-name">${volunteer.name}</span>
+                <span class="volunteer-rating">
+                    ${'★'.repeat(Math.floor(volunteer.rating))} ${volunteer.rating}
+                </span>
+            </div>
+            <div class="volunteer-distance">
+                <i class="fas fa-map-marker-alt"></i> ${volunteer.distance} away
+            </div>
+            <div class="volunteer-skills">
+                ${volunteer.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+            </div>
+            <div style="margin-top: 10px;">
+                <span class="badge ${volunteer.available ? 'badge-success' : 'badge-secondary'}">
+                    ${volunteer.available ? 'Available' : 'Busy'}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function initializeVolunteersMap() {
+    const mapContainer = document.getElementById('volunteers-map');
+    if (!mapContainer) return;
+    
+    const volunteersMap = L.map(mapContainer).setView([28.6139, 77.2090], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(volunteersMap);
+    
+    // Add volunteer markers
+    mockVolunteers.forEach(volunteer => {
+        const icon = L.divIcon({
+            html: `<div style="background: ${volunteer.available ? '#28a745' : '#6c757d'}; 
+                   color: white; border-radius: 50%; width: 30px; height: 30px; 
+                   display: flex; align-items: center; justify-content: center; 
+                   font-weight: bold;">${volunteer.name.charAt(0)}</div>`,
+            iconSize: [30, 30],
+            className: 'volunteer-marker'
+        });
+        
+        L.marker(volunteer.coordinates, {icon})
+            .addTo(volunteersMap)
+            .bindPopup(`
+                <strong>${volunteer.name}</strong><br>
+                Rating: ${volunteer.rating} ★<br>
+                Distance: ${volunteer.distance}<br>
+                Status: ${volunteer.available ? 'Available' : 'Busy'}
+            `);
+    });
+    
+    // Add user location
+    L.marker([28.6139, 77.2090])
+        .addTo(volunteersMap)
+        .bindPopup('Your Location')
+        .openPopup();
+}
+
+function requestVolunteerSupport() {
+    showAlert('Volunteer support request sent! (Demo Mode) - Nearby volunteers have been notified.', 'success');
+}
+
+// Safety Score Calculation
+function updateSafetyScore() {
+    // Mock calculation based on various factors
+    const factors = {
+        locationSafety: Math.random() * 30 + 70, // 70-100
+        timeOfDay: new Date().getHours() > 6 && new Date().getHours() < 22 ? 90 : 60,
+        verificationStatus: currentUser?.isFullyVerified ? 95 : 50,
+        emergencyContacts: Math.min((currentUser?.emergencyContacts?.length || 0) * 10, 30),
+        recentActivity: 85
+    };
+    
+    const score = Math.round(
+        (factors.locationSafety * 0.3 + 
+         factors.timeOfDay * 0.2 + 
+         factors.verificationStatus * 0.2 + 
+         factors.emergencyContacts * 0.15 + 
+         factors.recentActivity * 0.15)
+    );
+    
+    const scoreElement = document.getElementById('safety-score');
+    const scoreCircle = document.querySelector('.score-circle');
+    
+    if (scoreElement) {
+        scoreElement.textContent = score;
+    }
+    
+    if (scoreCircle) {
+        // Update color based on score
+        let gradient;
+        if (score >= 80) {
+            gradient = 'linear-gradient(135deg, #4CAF50, #45a049)';
+        } else if (score >= 60) {
+            gradient = 'linear-gradient(135deg, #ff9800, #f57c00)';
+        } else {
+            gradient = 'linear-gradient(135deg, #f44336, #d32f2f)';
+        }
+        scoreCircle.style.background = gradient;
     }
 }
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    if (window.location.pathname === '/dashboard') {
-        initializeDashboard();
-        
-        // Add event listeners for buttons
-        document.getElementById('logout-btn')?.addEventListener('click', logout);
-        document.getElementById('send-otp-btn')?.addEventListener('click', sendOTP);
-        document.getElementById('verify-otp-btn')?.addEventListener('click', verifyOTP);
-        document.getElementById('add-contact-btn')?.addEventListener('click', showContactModal);
-        document.getElementById('close-contact-modal')?.addEventListener('click', closeContactModal);
-        
-        // Contact form submission
-        document.getElementById('contactForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const contactData = {
-                name: document.getElementById('contactName').value,
-                phone: document.getElementById('contactPhone').value,
-                relationship: document.getElementById('contactRelationship').value,
-                priority: parseInt(document.getElementById('contactPriority').value)
-            };
-            await addContact(contactData);
-        });
-
-        // Emergency numbers click to call
-        document.querySelectorAll('.feature-card[data-number]').forEach(card => {
-            card.addEventListener('click', () => {
-                const number = card.getAttribute('data-number');
-                if (confirm(`Call ${number}?`)) {
-                    window.location.href = `tel:${number}`;
+    try {
+        if (window.location.pathname === '/dashboard' || window.location.pathname.includes('dashboard')) {
+            // Initialize all features when DOM is loaded - with safe function checks
+            
+            // Skip initializeDashboardTabs as it's not defined and not needed
+            // if (typeof initializeDashboardTabs === "function") {
+            //     initializeDashboardTabs();
+            // }
+            
+            if (typeof initializeAlertHistory === "function") {
+                initializeAlertHistory();
+            }
+            
+            if (typeof initializeLiveTracking === "function") {
+                initializeLiveTracking();
+            }
+            
+            if (typeof initializeVolunteers === "function") {
+                initializeVolunteers();
+            }
+            
+            if (typeof initializeVoiceTextSOS === "function") {
+                initializeVoiceTextSOS();
+            }
+            
+            if (typeof initializeEFIR === "function") {
+                initializeEFIR();
+            }
+            
+            if (typeof updateSafetyScore === "function") {
+                updateSafetyScore();
+            }
+            
+            // Always try to initialize map - this is critical for Safety Map functionality
+            setTimeout(() => {
+                if (typeof L !== 'undefined' && typeof initializeMap === "function") {
+                    initializeMap();
+                } else {
+                    console.warn('Leaflet library or initializeMap function not available');
                 }
-            });
-        });
-
-        console.log('Dashboard initialized successfully');
+            }, 1000);
+            
+            // Initialize dashboard with event listeners
+            if (typeof initializeDashboard === "function") {
+                initializeDashboard();
+            }
+            
+            // Initialize volunteer support button
+            document.getElementById('request-volunteer-btn')?.addEventListener('click', requestVolunteerSupport);
+        }
+        
+        // Document upload form event listener
+        const documentForm = document.getElementById('documentForm');
+        if (documentForm) {
+            documentForm.addEventListener('submit', handleDocumentUpload);
+        }
     } catch (error) {
         console.error('Dashboard initialization error:', error);
         showAlert('Failed to initialize dashboard. Please refresh the page.', 'error');

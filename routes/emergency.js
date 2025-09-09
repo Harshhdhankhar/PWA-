@@ -94,20 +94,16 @@ router.post('/sos', authenticateToken, async (req, res) => {
               sentAt: new Date()
             });
           } else {
-            // Send 3 SMS messages with 2-second delays for urgency
-            for (let i = 1; i <= 3; i++) {
-              setTimeout(async () => {
-                try {
-                  await twilioClientSOS.messages.create({
-                    body: `${alertMessage} (Alert ${i}/3)`,
-                    from: process.env.TWILIO_PHONE_NUMBER_SOS,
-                    to: contact.phone
-                  });
-                  console.log(`SMS ${i}/3 sent to ${contact.name}: ${contact.phone}`);
-                } catch (smsError) {
-                  console.error(`Failed to send SMS ${i}/3 to ${contact.name}:`, smsError);
-                }
-              }, (i - 1) * 2000);
+            // Send immediate SMS for faster emergency response
+            try {
+              await twilioClientSOS.messages.create({
+                body: alertMessage,
+                from: process.env.TWILIO_PHONE_NUMBER_SOS,
+                to: contact.phone
+              });
+              console.log(`Emergency SMS sent to ${contact.name}: ${contact.phone}`);
+            } catch (smsError) {
+              console.error(`Failed to send SMS to ${contact.name}:`, smsError);
             }
 
             notifications.push({
@@ -158,9 +154,17 @@ router.post('/sos', authenticateToken, async (req, res) => {
 
     // Update SOS alert with notification results
     sosAlert.contactsNotified = notifications;
-    await sosAlert.save();
+    
+    try {
+      await sosAlert.save();
+      console.log('SOS alert saved successfully to database');
+    } catch (saveError) {
+      console.error('Failed to save SOS alert to database:', saveError);
+      // Continue with response even if DB save fails
+    }
 
-    res.json({
+    console.log('=== SOS ALERT SUCCESS - Sending 200 response ===');
+    return res.status(200).json({
       success: true,
       message: 'SOS alert sent successfully',
       alert: {

@@ -98,7 +98,7 @@ router.get('/stats', adminAuth, async (req, res) => {
     const [activeSOS, pendingDocs, totalUsers, verifiedUsers] = await Promise.all([
       SOSAlert.countDocuments({ status: 'active' }),
       Document.countDocuments({ verificationStatus: 'pending' }),
-      User.countDocuments(),
+      User.countDocuments({}),
       User.countDocuments({ documentVerified: true, phoneVerified: true })
     ]);
 
@@ -123,38 +123,37 @@ router.get('/recent-activity', adminAuth, async (req, res) => {
   try {
     const activities = [];
     
-    // Get recent SOS alerts
+    // Get recent SOS alerts - sort by createdAt for consistency
     const recentSOS = await SOSAlert.find()
-      .populate('user', 'name email')
-      .sort({ timestamp: -1 })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
       .limit(5);
     
     recentSOS.forEach(alert => {
       activities.push({
-        timestamp: alert.timestamp,
+        timestamp: alert.createdAt,
         type: 'sos',
-        user: alert.user?.name || 'Unknown',
-        description: `SOS alert triggered - ${alert.status}`
+        user: alert.userId?.name || 'Unknown User',
+        description: `SOS alert triggered - Status: ${alert.status}`
       });
     });
 
-    // Get recent document uploads
+    // Get recent document uploads - sort by createdAt for consistency
     const recentDocs = await Document.find()
-      .populate('user', 'name email')
-      .sort({ uploadedAt: -1 })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
       .limit(5);
     
     recentDocs.forEach(doc => {
       activities.push({
-        filePath: `/uploads/${doc.fileName}`,
-        timestamp: doc.uploadedAt,
+        timestamp: doc.createdAt,
         type: 'document',
-        user: doc.user?.name || 'Unknown',
+        user: doc.userId?.name || 'Unknown User',
         description: `Document uploaded - ${doc.documentType} (${doc.verificationStatus})`
       });
     });
 
-    // Sort by timestamp
+    // Sort all activities by timestamp (newest first)
     activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     res.json({

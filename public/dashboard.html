@@ -16,11 +16,37 @@
                 <div id="user-details"></div>
             </div>
             <div class="verification-status" id="verification-status"></div>
+            <div class="safety-score-badge" id="safety-score-badge">
+                <div class="score-circle">
+                    <span id="safety-score">85</span>
+                    <small>Safety Score</small>
+                </div>
+            </div>
             <button class="btn btn-secondary" id="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 Logout
             </button>
         </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="dashboard-nav">
+            <button class="nav-tab active" data-tab="main">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </button>
+            <button class="nav-tab" data-tab="history">
+                <i class="fas fa-history"></i>
+                Alert History
+            </button>
+            <button class="nav-tab" data-tab="tracking">
+                <i class="fas fa-map-marker-alt"></i>
+                Live Tracking
+            </button>
+            <button class="nav-tab" data-tab="volunteers">
+                <i class="fas fa-hands-helping"></i>
+                Volunteers
+            </button>
+        </nav>
 
         <main class="main-content">
             <div id="alert-container"></div>
@@ -86,22 +112,57 @@
                 </form>
             </div>
 
-            <!-- Main Dashboard Content -->
-            <div id="main-dashboard" class="hidden">
-                <!-- SOS Section -->
-                <div class="sos-container">
-                    <h3>Emergency SOS</h3>
-                    <p>Press and hold for 3 seconds to send emergency alert</p>
-                    <button id="sosButton" class="sos-button">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>SOS</span>
-                        <small>EMERGENCY</small>
-                    </button>
-                    <div id="sos-progress" class="hidden">
-                        <div class="spinner"></div>
-                        <p>Sending emergency alert...</p>
+            <!-- Tab Content Container -->
+            <div class="tab-content">
+                <!-- Main Dashboard Tab -->
+                <div id="main-tab" class="tab-pane active">
+                    <!-- SOS Section -->
+                    <div class="sos-container">
+                        <h3>Emergency SOS</h3>
+                        <p>Press and hold for 2 seconds to send emergency alert</p>
+                        
+                        <!-- Enhanced SOS Options -->
+                        <div class="sos-options">
+                            <button id="sosButton" class="sos-button">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>SOS</span>
+                                <small>EMERGENCY</small>
+                            </button>
+                            
+                            <!-- Voice/Text Emergency Access -->
+                            <div class="accessibility-sos">
+                                <h4>Accessibility Options</h4>
+                                <div class="accessibility-buttons">
+                                    <button id="voice-sos-btn" class="btn btn-voice">
+                                        <i class="fas fa-microphone"></i>
+                                        Voice SOS
+                                    </button>
+                                    <button id="text-sos-btn" class="btn btn-text">
+                                        <i class="fas fa-keyboard"></i>
+                                        Text SOS
+                                    </button>
+                                </div>
+                                <div id="voice-status" class="voice-status hidden"></div>
+                                <div id="text-sos-input" class="text-sos-input hidden">
+                                    <textarea id="emergency-text" placeholder="Type your emergency message..." rows="3"></textarea>
+                                    <button id="send-text-sos" class="btn btn-primary">Send Emergency Text</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="sos-progress" class="hidden">
+                            <div class="spinner"></div>
+                            <p>Sending emergency alert...</p>
+                        </div>
+                        
+                        <!-- e-FIR Missing Person -->
+                        <div class="efir-section">
+                            <button id="report-missing-btn" class="btn btn-warning">
+                                <i class="fas fa-search"></i>
+                                Report Missing Person
+                            </button>
+                        </div>
                     </div>
-                </div>
 
                 <!-- Emergency Numbers -->
                 <div class="emergency-numbers">
@@ -138,16 +199,105 @@
                     </div>
                 </div>
 
-                <!-- Emergency Contacts -->
-                <div class="contacts-section">
-                    <div class="flex justify-between align-center mb-20">
-                        <h3>Emergency Contacts</h3>
-                        <button class="btn btn-primary" id="add-contact-btn">
-                            <i class="fas fa-plus"></i>
-                            Add Contact
+                    <!-- Emergency Contacts -->
+                    <div class="contacts-section">
+                        <div class="flex justify-between align-center mb-20">
+                            <h3>Emergency Contacts</h3>
+                            <button class="btn btn-primary" id="add-contact-btn">
+                                <i class="fas fa-plus"></i>
+                                Add Contact
+                            </button>
+                        </div>
+                        <div id="contacts-list"></div>
+                    </div>
+                </div>
+
+                <!-- Alert History Tab -->
+                <div id="history-tab" class="tab-pane hidden">
+                    <div class="history-header">
+                        <h3>Alert History & Last Known Location</h3>
+                        <div class="history-stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="total-alerts">12</span>
+                                <span class="stat-label">Total Alerts</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="resolved-alerts">10</span>
+                                <span class="stat-label">Resolved</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="history-content">
+                        <div class="history-list">
+                            <h4>Recent SOS Alerts</h4>
+                            <div id="alert-history-list"></div>
+                        </div>
+                        
+                        <div class="last-location-widget">
+                            <h4>Last Known Location</h4>
+                            <div id="last-location-map" class="mini-map"></div>
+                            <div class="location-details">
+                                <p><i class="fas fa-map-marker-alt"></i> <span id="last-location-address">Connaught Place, New Delhi</span></p>
+                                <p><i class="fas fa-clock"></i> <span id="last-location-time">2 hours ago</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Tracking Tab -->
+                <div id="tracking-tab" class="tab-pane hidden">
+                    <div class="tracking-header">
+                        <h3>Real-Time Tracking</h3>
+                        <div class="tracking-controls">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="live-tracking-toggle">
+                                <span class="slider"></span>
+                                <span class="toggle-label">Live Tracking</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="tracking-content">
+                        <div id="tracking-map" class="full-map"></div>
+                        <div class="tracking-info">
+                            <div class="tracking-stats">
+                                <div class="stat-card">
+                                    <i class="fas fa-route"></i>
+                                    <div>
+                                        <span class="stat-value" id="distance-traveled">2.4 km</span>
+                                        <span class="stat-label">Distance Traveled</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-clock"></i>
+                                    <div>
+                                        <span class="stat-value" id="tracking-duration">1h 23m</span>
+                                        <span class="stat-label">Tracking Duration</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Volunteers Tab -->
+                <div id="volunteers-tab" class="tab-pane hidden">
+                    <div class="volunteers-header">
+                        <h3>Nearby Volunteers</h3>
+                        <button class="btn btn-primary" id="request-volunteer-btn">
+                            <i class="fas fa-hand-paper"></i>
+                            Request Volunteer Support
                         </button>
                     </div>
-                    <div id="contacts-list"></div>
+                    
+                    <div class="volunteers-content">
+                        <div id="volunteers-map" class="full-map"></div>
+                        <div class="volunteers-list">
+                            <h4>Available Volunteers</h4>
+                            <div id="volunteers-list-container"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -189,7 +339,84 @@
         </div>
     </div>
 
+    <!-- Missing Person e-FIR Modal -->
+    <div id="efirModal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h4>Report Missing Person - e-FIR</h4>
+                <button class="close-btn" id="close-efir-modal">&times;</button>
+            </div>
+            <form id="efirForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="missingName">Full Name</label>
+                        <input type="text" id="missingName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="missingAge">Age</label>
+                        <input type="number" id="missingAge" class="form-control" min="1" max="120" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="missingDescription">Physical Description</label>
+                    <textarea id="missingDescription" class="form-control" rows="3" placeholder="Height, weight, clothing, distinguishing features..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="lastSeenLocation">Last Seen Location</label>
+                    <input type="text" id="lastSeenLocation" class="form-control" placeholder="Address or landmark" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lastSeenDate">Last Seen Date</label>
+                        <input type="date" id="lastSeenDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastSeenTime">Last Seen Time</label>
+                        <input type="time" id="lastSeenTime" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reporterContact">Your Contact Information</label>
+                    <input type="tel" id="reporterContact" class="form-control" placeholder="Phone number" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="preview-efir-btn">
+                        <i class="fas fa-eye"></i>
+                        Preview e-FIR
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i>
+                        Submit e-FIR
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- e-FIR Preview Modal -->
+    <div id="efirPreviewModal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h4>e-FIR Preview</h4>
+                <button class="close-btn" id="close-preview-modal">&times;</button>
+            </div>
+            <div id="efir-preview-content" class="efir-preview"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="download-efir-btn">
+                    <i class="fas fa-download"></i>
+                    Download PDF
+                </button>
+                <button type="button" class="btn btn-primary" id="submit-efir-final-btn">
+                    <i class="fas fa-check"></i>
+                    Confirm & Submit
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

@@ -179,20 +179,43 @@ class AdminDashboard {
 
     async loadDashboardData() {
         try {
+            console.log('Loading dashboard data...');
             const stats = await this.apiCall('/api/admin/stats');
-            if (stats) {
-                document.getElementById('activeSOS').textContent = stats.activeSOS || 0;
-                document.getElementById('pendingDocs').textContent = stats.pendingDocs || 0;
-                document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
-                document.getElementById('verifiedUsers').textContent = stats.verifiedUsers || 0;
+            console.log('Stats received:', stats);
+            
+            if (stats && stats.success) {
+                // Update DOM elements with animation
+                this.updateStatCard('activeSOS', stats.activeSOS || 0);
+                this.updateStatCard('pendingDocs', stats.pendingDocs || 0);
+                this.updateStatCard('totalUsers', stats.totalUsers || 0);
+                this.updateStatCard('verifiedUsers', stats.verifiedUsers || 0);
+            } else {
+                console.error('Stats API returned invalid data:', stats);
+                this.showAlert('Failed to load dashboard statistics', 'error');
             }
 
             const activity = await this.apiCall('/api/admin/recent-activity');
-            if (activity) {
+            if (activity && activity.success) {
                 this.displayRecentActivity(activity.activities || []);
             }
         } catch (error) {
             console.error('Error loading dashboard:', error);
+            this.showAlert('Failed to load dashboard data', 'error');
+        }
+    }
+
+    updateStatCard(elementId, newValue) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            // Add animation effect
+            element.style.transform = 'scale(1.1)';
+            element.textContent = newValue;
+            
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 200);
+        } else {
+            console.error(`Element with ID '${elementId}' not found`);
         }
     }
 
